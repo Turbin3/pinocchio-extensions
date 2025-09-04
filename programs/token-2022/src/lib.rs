@@ -2,6 +2,7 @@
 
 pub mod instructions;
 pub mod state;
+pub mod extensions;
 
 pinocchio_pubkey::declare_id!("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 
