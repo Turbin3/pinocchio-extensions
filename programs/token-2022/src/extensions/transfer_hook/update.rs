@@ -43,39 +43,27 @@ impl TransferHookUpdate<'_, '_> {
             AccountMeta::writable(self.mint.key()),
             AccountMeta::readonly_signer(self.authority.key()),
         ];
-
         // Instruction data layout:
         // - [0]: main discriminator (1 byte, u8) = 36 (TransferHookExtension)
         // - [1]: sub discriminator (1 byte, u8) = 1 (Update)
-        // - [2]: program_id presence flag + program_id (1 or 33 bytes)
-        let mut instruction_data = [UNINIT_BYTE; 35]; // Max: 2(flags) + 33(program_id)
-        let mut offset = 0;
-
-        // Set main discriminator
+        // - [2..34]: program_id (32 bytes, OptionalNonZeroPubkey - zeros if None)
+        let mut instruction_data = [UNINIT_BYTE; 34]; // Fixed: 2(discriminators) + 32(program_id)
+         // Set discriminators at fixed positions
         write_bytes(
-            &mut instruction_data[offset..offset + 1],
-            &[TRANSFER_HOOK_EXTENSION_DISCRIMINATOR],
+            &mut instruction_data[0..2],
+            &[TRANSFER_HOOK_EXTENSION_DISCRIMINATOR, UPDATE_DISCRIMINATOR],
         );
-        offset += 1;
 
-        // Set sub discriminator
-        write_bytes(
-            &mut instruction_data[offset..offset + 1],
-            &[UPDATE_DISCRIMINATOR],
-        );
-        offset += 1;
-
-        // Write new_transfer_hook_program_id
-        let program_id_len = write_optional_pubkey(
-            &mut instruction_data[offset..],
+        // Write new_transfer_hook_program_id at fixed position [2..34]
+        write_optional_pubkey(
+            &mut instruction_data[2..],
             self.new_transfer_hook_program_id,
         );
-        offset += program_id_len;
 
         let instruction = Instruction {
             program_id: self.token_program,
             accounts: &account_metas,
-            data: unsafe { from_raw_parts(instruction_data.as_ptr() as _, offset) },
+            data: unsafe { from_raw_parts(instruction_data.as_ptr() as _, 34) },
         };
 
         invoke_signed(&instruction, &[self.mint, self.authority], signers)
