@@ -1,10 +1,14 @@
-use crate::{write_bytes, UNINIT_BYTE};
 use core::slice::from_raw_parts;
-use pinocchio::account_info::AccountInfo;
-use pinocchio::cpi::invoke;
-use pinocchio::instruction::{AccountMeta, Instruction};
-use pinocchio::pubkey::Pubkey;
-use pinocchio::ProgramResult;
+
+use pinocchio::{
+    account_info::AccountInfo,
+    cpi::invoke,
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+    ProgramResult,
+};
+
+use crate::{write_bytes, UNINIT_BYTE};
 
 /// Initialize the transfer fee on a new mint.
 ///
@@ -33,91 +37,93 @@ impl InitializeTransferFeeConfig<'_, '_> {
         let account_metas: [AccountMeta; 1] = [AccountMeta::writable(self.mint.key())];
 
         // Instruction data layout:
-        // - [0]                        : discriminator (1 byte)
-        // - [1]                        : transfer_fee_config_authority presence flag (1 byte, u8)
-        // - [2..34]                    : transfer_fee_config_authority pubkey (optional, 32 bytes)
-        // - [34 or 2]                  : withdraw_withheld_authority presence flag (1 byte, u8)
-        // - [35..67 or 3..35]          : withdraw_withheld_authority pubkey (optional, 32 bytes)
-        // - [67..69 or 35..37 or 3..5] : transfer_fee_basis_points (2 bytes)
-        // - [69..71 or 37..39 or 5..7] : maximum_fee (2 bytes)
+        // - [0]                        : TransferFeeExtension discriminator (1 byte)
+        // - [1]                        : InitializeTransferFeeConfig discriminator (1 byte)
+        // - [2]                        : transfer_fee_config_authority presence flag (1 byte, u8)
+        // - [3..35]                    : transfer_fee_config_authority pubkey (optional, 32 bytes)
+        // - [35 or 3]                  : withdraw_withheld_authority presence flag (1 byte, u8)
+        // - [36..68 or 4..36]          : withdraw_withheld_authority pubkey (optional, 32 bytes)
+        // - [68..70 or 36..38 or 4..6] : transfer_fee_basis_points (2 bytes)
+        // - [70..72 or 38..40 or 6..8] : maximum_fee (2 bytes)
         //
         // Size depends on presence of transfer_fee_config_authority and withdraw_withheld_authority
-        let mut instruction_data = [UNINIT_BYTE; 71];
+        let mut instruction_data = [UNINIT_BYTE; 72];
         let length: usize;
 
-        // Set discriminator as u8 at offset [0]
-        write_bytes(&mut instruction_data, &[0]);
+        // -  [0]: instruction TransferFeeExtension discriminator (1 byte, u8)
+        // -  [1]: instruction WithdrawWithheldTokensFromMint discriminator (1 byte, u8)
+        write_bytes(&mut instruction_data, &[26, 0]);
 
         if let Some(transfer_fee_config_authority) = self.transfer_fee_config_authority {
-            // Set Option = `true` & transfer_fee_config_authority at offset [1..34]
-            write_bytes(&mut instruction_data[1..2], &[1]);
-            write_bytes(&mut instruction_data[2..34], transfer_fee_config_authority);
+            // Set Option = `true` & transfer_fee_config_authority at offset [2..35]
+            write_bytes(&mut instruction_data[2..3], &[1]);
+            write_bytes(&mut instruction_data[3..35], transfer_fee_config_authority);
             if let Some(withdraw_withheld_authority) = self.withdraw_withheld_authority {
-                // Set Option = `true` & withdraw_withheld_authority at offset [34..67]
-                write_bytes(&mut instruction_data[34..35], &[1]);
-                write_bytes(&mut instruction_data[35..67], withdraw_withheld_authority);
-                // Set transfer_fee_basis_points as u16 at offset [67..69]
+                // Set Option = `true` & withdraw_withheld_authority at offset [35..68]
+                write_bytes(&mut instruction_data[35..36], &[1]);
+                write_bytes(&mut instruction_data[36..68], withdraw_withheld_authority);
+                // Set transfer_fee_basis_points as u16 at offset [68..70]
                 write_bytes(
-                    &mut instruction_data[67..69],
+                    &mut instruction_data[68..70],
                     self.transfer_fee_basis_points.to_le_bytes().as_ref(),
                 );
-                // Set maximum_fee as u16 at offset [69..71]
+                // Set maximum_fee as u16 at offset [70..72]
                 write_bytes(
-                    &mut instruction_data[69..71],
+                    &mut instruction_data[70..72],
                     self.maximum_fee.to_le_bytes().as_ref(),
                 );
 
-                length = 71;
+                length = 72;
             } else {
                 // Set Option = `false` withdraw_withheld_authority presence flag
-                write_bytes(&mut instruction_data[34..35], &[0]);
-                // Set transfer_fee_basis_points as u16 at offset [35..37]
+                write_bytes(&mut instruction_data[35..36], &[0]);
+                // Set transfer_fee_basis_points as u16 at offset [36..38]
                 write_bytes(
-                    &mut instruction_data[35..37],
+                    &mut instruction_data[36..38],
                     self.transfer_fee_basis_points.to_le_bytes().as_ref(),
                 );
-                // Set maximum_fee as u16 at offset [37..39]
+                // Set maximum_fee as u16 at offset [38..40]
                 write_bytes(
-                    &mut instruction_data[37..39],
+                    &mut instruction_data[38..40],
                     self.maximum_fee.to_le_bytes().as_ref(),
                 );
-                length = 39;
+                length = 40;
             }
         } else if let Some(withdraw_withheld_authority) = self.withdraw_withheld_authority {
             // Set Option = `false` transfer_fee_config_authority presence flag
-            write_bytes(&mut instruction_data[1..2], &[0]);
-            // Set Option = `true` & withdraw_withheld_authority at offset [2..35]
-            write_bytes(&mut instruction_data[2..3], &[1]);
-            write_bytes(&mut instruction_data[3..35], withdraw_withheld_authority);
-            // Set transfer_fee_basis_points as u16 at offset [35..37]
+            write_bytes(&mut instruction_data[2..3], &[0]);
+            // Set Option = `true` & withdraw_withheld_authority at offset [3..36]
+            write_bytes(&mut instruction_data[3..4], &[1]);
+            write_bytes(&mut instruction_data[4..36], withdraw_withheld_authority);
+            // Set transfer_fee_basis_points as u16 at offset [36..38]
             write_bytes(
-                &mut instruction_data[35..37],
+                &mut instruction_data[36..38],
                 self.transfer_fee_basis_points.to_le_bytes().as_ref(),
             );
-            // Set maximum_fee as u16 at offset [37..39]
+            // Set maximum_fee as u16 at offset [38..40]
             write_bytes(
-                &mut instruction_data[37..39],
+                &mut instruction_data[38..40],
                 self.maximum_fee.to_le_bytes().as_ref(),
             );
 
-            length = 39;
+            length = 40;
         } else {
             // Set Option = `false` transfer_fee_config_authority presence flag
-            write_bytes(&mut instruction_data[1..2], &[0]);
-            // Set Option = `false` withdraw_withheld_authority presence flag
             write_bytes(&mut instruction_data[2..3], &[0]);
-            // Set transfer_fee_basis_points as u16 at offset [3..5]
+            // Set Option = `false` withdraw_withheld_authority presence flag
+            write_bytes(&mut instruction_data[3..4], &[0]);
+            // Set transfer_fee_basis_points as u16 at offset [4..6]
             write_bytes(
-                &mut instruction_data[3..5],
+                &mut instruction_data[4..6],
                 self.transfer_fee_basis_points.to_le_bytes().as_ref(),
             );
-            // Set maximum_fee as u16 at offset [5..7]
+            // Set maximum_fee as u16 at offset [6..8]
             write_bytes(
-                &mut instruction_data[5..7],
+                &mut instruction_data[6..8],
                 self.maximum_fee.to_le_bytes().as_ref(),
             );
 
-            length = 7;
+            length = 8;
         }
 
         let instruction = Instruction {
