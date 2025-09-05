@@ -21,7 +21,7 @@ use pinocchio::pubkey::Pubkey;
 
 /// Writes OptionalNonZeroPubkey in the correct spl-pod format
 /// - Some(pubkey): writes the actual 32-byte pubkey
-/// - None: writes 32 bytes of zeros (Pubkey::default())
+/// - None: writes 32 bytes of zeros 
 /// Always returns 32 (fixed length)
 #[inline(always)]
 pub(crate) fn write_optional_pubkey(
