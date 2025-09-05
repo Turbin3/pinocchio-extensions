@@ -47,7 +47,7 @@ impl TransferHookInitialize<'_, '_> {
         // - [2..34]: authority (32 bytes, OptionalNonZeroPubkey - zeros if None)
         // - [34..66]: program_id (32 bytes, OptionalNonZeroPubkey - zeros if None)
         let mut instruction_data = [UNINIT_BYTE; 66]; // Fixed: 2(discriminators) + 32(authority) + 32(program_id)
-                                                      // Set discriminators at fixed positions
+        // Set discriminators at fixed positions
         write_bytes(
             &mut instruction_data[0..2],
             &[

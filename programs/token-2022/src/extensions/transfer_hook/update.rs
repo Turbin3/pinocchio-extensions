@@ -48,7 +48,7 @@ impl TransferHookUpdate<'_, '_> {
         // - [1]: sub discriminator (1 byte, u8) = 1 (Update)
         // - [2..34]: program_id (32 bytes, OptionalNonZeroPubkey - zeros if None)
         let mut instruction_data = [UNINIT_BYTE; 34]; // Fixed: 2(discriminators) + 32(program_id)
-         // Set discriminators at fixed positions
+        // Set discriminators at fixed positions
         write_bytes(
             &mut instruction_data[0..2],
             &[TRANSFER_HOOK_EXTENSION_DISCRIMINATOR, UPDATE_DISCRIMINATOR],
