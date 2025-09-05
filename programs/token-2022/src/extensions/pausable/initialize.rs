@@ -13,13 +13,13 @@ use crate::{
     write_bytes, UNINIT_BYTE,
 };
 
-/// Initialize the pausable extension for the given mint account
+/// Initialize the pausable extension for the given mint account.
 ///
 /// Fails if the account has already been initialized, so must be called
 /// before `InitializeMint`.
 ///
 /// ### Accounts:
-///   0. `[WRITE]` The mint.
+///   0. `[WRITE]` The mint account to initialize.
 pub struct Initialize<'a, 'b> {
     /// Mint Account.
     pub mint: &'a AccountInfo,
