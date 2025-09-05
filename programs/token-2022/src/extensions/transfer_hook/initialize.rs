@@ -2,8 +2,8 @@ use core::slice::from_raw_parts;
 
 use pinocchio::{
     account_info::AccountInfo,
-    program::invoke_signed,
     instruction::{AccountMeta, Instruction, Signer},
+    program::invoke_signed,
     pubkey::Pubkey,
     ProgramResult,
 };
@@ -44,40 +44,28 @@ impl TransferHookInitialize<'_, '_> {
         // Instruction data layout:
         // - [0]: main discriminator (1 byte, u8) = 36 (TransferHookExtension)
         // - [1]: sub discriminator (1 byte, u8) = 0 (Initialize)
-        // - [2]: authority presence flag + authority (1 or 33 bytes)
-        // - [2+auth_len]: program_id presence flag + program_id (1 or 33 bytes)
-        let mut instruction_data = [UNINIT_BYTE; 68]; // Max: 2(flags) + 33(authority) + 33(program_id)
-        let mut offset = 0;
-
-        // Set main discriminator
+        // - [2..34]: authority (32 bytes, OptionalNonZeroPubkey - zeros if None)
+        // - [34..66]: program_id (32 bytes, OptionalNonZeroPubkey - zeros if None)
+        let mut instruction_data = [UNINIT_BYTE; 66]; // Fixed: 2(discriminators) + 32(authority) + 32(program_id)
+        // Set discriminators at fixed positions
         write_bytes(
-            &mut instruction_data[offset..offset + 1],
-            &[TRANSFER_HOOK_EXTENSION_DISCRIMINATOR],
+            &mut instruction_data[0..2],
+            &[
+                TRANSFER_HOOK_EXTENSION_DISCRIMINATOR,
+                INITIALIZE_DISCRIMINATOR,
+            ],
         );
-        offset += 1;
 
-        // Set sub discriminator
-        write_bytes(
-            &mut instruction_data[offset..offset + 1],
-            &[INITIALIZE_DISCRIMINATOR],
-        );
-        offset += 1;
+        // Write authority at fixed position [2..34]
+        write_optional_pubkey(&mut instruction_data[2..], self.authority);
 
-        // Write authority (OptionalNonZeroPubkey)
-        let auth_len = write_optional_pubkey(&mut instruction_data[offset..], self.authority);
-        offset += auth_len;
-
-        // Write transfer_hook_program_id (OptionalNonZeroPubkey)
-        let program_id_len = write_optional_pubkey(
-            &mut instruction_data[offset..],
-            self.transfer_hook_program_id,
-        );
-        offset += program_id_len;
+        // Write transfer_hook_program_id at fixed position [34..66]
+        write_optional_pubkey(&mut instruction_data[34..], self.transfer_hook_program_id);
 
         let instruction = Instruction {
             program_id: self.token_program,
             accounts: &account_metas,
-            data: unsafe { from_raw_parts(instruction_data.as_ptr() as _, offset) },
+            data: unsafe { from_raw_parts(instruction_data.as_ptr() as _, 66) },
         };
 
         invoke_signed(&instruction, &[self.mint], signers)
