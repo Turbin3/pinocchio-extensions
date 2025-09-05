@@ -20,8 +20,11 @@ use crate::{
 ///
 /// ### Accounts:
 ///   0. `[WRITE]` The mint account to initialize.
+///
+///  ### Data:
+///   0. `authority` Pubkey of the mint's pause authority.
 pub struct Initialize<'a, 'b> {
-    /// Mint Account.
+    /// Mint Account
     pub mint: &'a AccountInfo,
     /// Authority
     pub authority: &'a Pubkey,
@@ -45,7 +48,7 @@ impl Initialize<'_, '_> {
         // Set discriminator as u8 at offset [1] for Initialize instruction
         write_bytes(&mut instruction_data[1..2], &[INITIALIZE]);
         // Set authority as Pubkey at offset [2..34]
-        write_bytes(&mut instruction_data, self.authority);
+        write_bytes(&mut instruction_data[2..34], self.authority);
 
         let instruction = Instruction {
             program_id: self.token_program,

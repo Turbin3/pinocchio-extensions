@@ -42,7 +42,7 @@ impl Pause<'_, '_> {
 
         // Set discriminator as u8 at offset [0] for PausableExtension token instruction
         write_bytes(&mut instruction_data, &[PAUSABLE_EXTENSION]);
-        // Set discriminator as u8 at offset [1] for Initialize instruction
+        // Set discriminator as u8 at offset [1] for Pause instruction
         write_bytes(&mut instruction_data[1..2], &[PAUSE]);
 
         let instruction = Instruction {
@@ -51,6 +51,6 @@ impl Pause<'_, '_> {
             data: unsafe { from_raw_parts(instruction_data.as_ptr() as _, instruction_data.len()) },
         };
 
-        invoke(&instruction, &[self.mint])
+        invoke(&instruction, &[self.mint, self.authority])
     }
 }
