@@ -2,14 +2,16 @@ use core::{mem::MaybeUninit, slice};
 
 use pinocchio::{
     account_info::AccountInfo,
-    cpi::{invoke_with_bounds, MAX_CPI_ACCOUNTS},
-    instruction::{AccountMeta, Instruction},
+    cpi::{invoke_signed_with_bounds, MAX_CPI_ACCOUNTS},
+    instruction::{AccountMeta, Instruction, Signer},
     program_error::ProgramError,
     pubkey::Pubkey,
     ProgramResult,
 };
 
-use crate::instructions::MAX_MULTISIG_SIGNERS;
+use crate::instructions::{
+    MAX_MULTISIG_SIGNERS, TRANSFER_FEE_EXTENSION, WITHDRAW_WITHHELD_TOKENS_FROM_ACCOUNTS,
+};
 
 /// Transfer all withheld tokens to an account. Signed by the mint's
 /// withdraw withheld tokens authority.
@@ -54,17 +56,22 @@ where
 impl WithdrawWithheldTokensFromAccounts<'_, '_, '_> {
     #[inline(always)]
     pub fn invoke(&self) -> ProgramResult {
+        self.invoke_signed(&[])
+    }
+
+    #[inline(always)]
+    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
         let &Self {
             mint,
             destination,
             withdraw_withheld_authority,
             num_token_accounts,
-            signers,
+            signers: account_signers,
             source_accounts,
             token_program,
         } = self;
 
-        if signers.len() > MAX_MULTISIG_SIGNERS {
+        if account_signers.len() > MAX_MULTISIG_SIGNERS {
             return Err(ProgramError::InvalidArgument);
         }
 
@@ -72,11 +79,11 @@ impl WithdrawWithheldTokensFromAccounts<'_, '_, '_> {
             return Err(ProgramError::InvalidArgument);
         }
 
-        if (3 + num_token_accounts as usize + signers.len()) > MAX_CPI_ACCOUNTS {
+        if (3 + num_token_accounts as usize + account_signers.len()) > MAX_CPI_ACCOUNTS {
             return Err(ProgramError::InvalidArgument);
         }
 
-        let num_accounts = 3 + num_token_accounts as usize + signers.len();
+        let num_accounts = 3 + num_token_accounts as usize + account_signers.len();
 
         // Account metadata
         const UNINIT_META: MaybeUninit<AccountMeta> = MaybeUninit::<AccountMeta>::uninit();
@@ -94,7 +101,7 @@ impl WithdrawWithheldTokensFromAccounts<'_, '_, '_> {
                 .get_unchecked_mut(1)
                 .write(AccountMeta::writable(destination.key()));
             // - Index 2 is always present
-            if signers.is_empty() {
+            if account_signers.is_empty() {
                 acc_metas
                     .get_unchecked_mut(2)
                     .write(AccountMeta::readonly_signer(
@@ -107,11 +114,11 @@ impl WithdrawWithheldTokensFromAccounts<'_, '_, '_> {
             }
         }
 
-        for (account_meta, signer) in acc_metas[3..].iter_mut().zip(signers.iter()) {
+        for (account_meta, signer) in acc_metas[3..].iter_mut().zip(account_signers.iter()) {
             account_meta.write(AccountMeta::readonly_signer(signer.key()));
         }
 
-        for (account_meta, source_account) in acc_metas[(3 + signers.len())..]
+        for (account_meta, source_account) in acc_metas[(3 + account_signers.len())..]
             .iter_mut()
             .zip(source_accounts.iter())
         {
@@ -122,7 +129,11 @@ impl WithdrawWithheldTokensFromAccounts<'_, '_, '_> {
         // -  [0]: instruction TransferFeeExtension discriminator (1 byte, u8)
         // -  [1]: instruction WithdrawWithheldTokensFromAccounts discriminator (1 byte, u8)
         // -  [2]: num_token_accounts (1 byte, u8)
-        let instruction_data = [26, 3, num_token_accounts];
+        let instruction_data = [
+            TRANSFER_FEE_EXTENSION,
+            WITHDRAW_WITHHELD_TOKENS_FROM_ACCOUNTS,
+            num_token_accounts,
+        ];
 
         let instruction = Instruction {
             program_id: token_program,
@@ -148,20 +159,22 @@ impl WithdrawWithheldTokensFromAccounts<'_, '_, '_> {
         }
 
         // Fill signer accounts
-        for (account_info, signer) in acc_infos[3..].iter_mut().zip(signers.iter()) {
+        for (account_info, signer) in acc_infos[3..].iter_mut().zip(account_signers.iter()) {
             account_info.write(signer);
         }
 
         // Fill source accounts
-        for (account_info, source_account) in acc_infos[(3 + signers.len())..]
+        for (account_info, source_account) in acc_infos[(3 + account_signers.len())..]
             .iter_mut()
             .zip(source_accounts.iter())
         {
             account_info.write(source_account);
         }
 
-        invoke_with_bounds::<{ MAX_CPI_ACCOUNTS }>(&instruction, unsafe {
-            slice::from_raw_parts(acc_infos.as_ptr() as _, num_accounts)
-        })
+        invoke_signed_with_bounds::<{ MAX_CPI_ACCOUNTS }>(
+            &instruction,
+            unsafe { slice::from_raw_parts(acc_infos.as_ptr() as _, num_accounts) },
+            signers,
+        )
     }
 }

@@ -1,18 +1,18 @@
 use core::{
     mem::MaybeUninit,
-    slice::{self, from_raw_parts},
+    slice::{self},
 };
 
 use pinocchio::{
     account_info::AccountInfo,
-    cpi::invoke_with_bounds,
-    instruction::{AccountMeta, Instruction},
+    cpi::invoke_signed_with_bounds,
+    instruction::{AccountMeta, Instruction, Signer},
     program_error::ProgramError,
     pubkey::Pubkey,
     ProgramResult,
 };
 
-use crate::{instructions::MAX_MULTISIG_SIGNERS, write_bytes, UNINIT_BYTE};
+use crate::instructions::{set_transfer_fee_instruction_data, MAX_MULTISIG_SIGNERS};
 
 /// Set transfer fee. Only supported for mints that include the
 /// `TransferFeeConfig` extension.
@@ -49,20 +49,25 @@ where
 impl SetTransferFee<'_, '_, '_> {
     #[inline(always)]
     pub fn invoke(&self) -> ProgramResult {
+        self.invoke_signed(&[])
+    }
+
+    #[inline(always)]
+    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
         let &Self {
             mint,
             fee_account_authority,
             transfer_fee_basis_points,
             maximum_fee,
-            signers,
+            signers: account_signers,
             token_program,
         } = self;
 
-        if signers.len() > MAX_MULTISIG_SIGNERS {
+        if account_signers.len() > MAX_MULTISIG_SIGNERS {
             return Err(ProgramError::InvalidArgument);
         }
 
-        let num_accounts = 2 + signers.len();
+        let num_accounts = 2 + account_signers.len();
 
         // Account metadata
         const UNINIT_META: MaybeUninit<AccountMeta> = MaybeUninit::<AccountMeta>::uninit();
@@ -76,7 +81,7 @@ impl SetTransferFee<'_, '_, '_> {
                 .get_unchecked_mut(0)
                 .write(AccountMeta::writable(mint.key()));
             // - Index 1 is always present
-            if signers.is_empty() {
+            if account_signers.is_empty() {
                 acc_metas
                     .get_unchecked_mut(1)
                     .write(AccountMeta::readonly_signer(fee_account_authority.key()));
@@ -87,36 +92,16 @@ impl SetTransferFee<'_, '_, '_> {
             }
         }
 
-        for (account_meta, signer) in acc_metas[2..].iter_mut().zip(signers.iter()) {
+        for (account_meta, signer) in acc_metas[2..].iter_mut().zip(account_signers.iter()) {
             account_meta.write(AccountMeta::readonly_signer(signer.key()));
         }
 
-        // Instruction data layout:
-        // -  [0]: instruction TransferFeeExtension discriminator (1 byte, u8)
-        // -  [1]: instruction SetTransferFee discriminator (1 byte, u8)
-        // -  [2..4]: transfer_fee_basis_points (2 bytes, u16)
-        // -  [4..12]: maximum_fee (8 bytes, u64)
-        let mut instruction_data = [UNINIT_BYTE; 12];
-
-        // -  [0]: instruction TransferFeeExtension discriminator (1 byte, u8)
-        // -  [1]: instruction SetTransferFee discriminator (1 byte, u8)
-        write_bytes(&mut instruction_data, &[26, 5]);
-
-        // Set amount as u64 at offset [2..4]
-        write_bytes(
-            &mut instruction_data[2..4],
-            transfer_fee_basis_points.to_le_bytes().as_ref(),
-        );
-        // Set fee as u64 at offset [4..12]
-        write_bytes(
-            &mut instruction_data[4..12],
-            maximum_fee.to_le_bytes().as_ref(),
-        );
+        let data = set_transfer_fee_instruction_data(transfer_fee_basis_points, maximum_fee);
 
         let instruction = Instruction {
             program_id: token_program,
             accounts: unsafe { slice::from_raw_parts(acc_metas.as_ptr() as _, num_accounts) },
-            data: unsafe { from_raw_parts(instruction_data.as_ptr() as _, 12) },
+            data,
         };
 
         // Account info array
@@ -133,12 +118,14 @@ impl SetTransferFee<'_, '_, '_> {
         }
 
         // Fill signer accounts
-        for (account_info, signer) in acc_infos[2..].iter_mut().zip(signers.iter()) {
+        for (account_info, signer) in acc_infos[2..].iter_mut().zip(account_signers.iter()) {
             account_info.write(signer);
         }
 
-        invoke_with_bounds::<{ 2 + MAX_MULTISIG_SIGNERS }>(&instruction, unsafe {
-            slice::from_raw_parts(acc_infos.as_ptr() as _, num_accounts)
-        })
+        invoke_signed_with_bounds::<{ 2 + MAX_MULTISIG_SIGNERS }>(
+            &instruction,
+            unsafe { slice::from_raw_parts(acc_infos.as_ptr() as _, num_accounts) },
+            signers,
+        )
     }
 }

@@ -1,18 +1,18 @@
 use core::{
     mem::MaybeUninit,
-    slice::{self, from_raw_parts},
+    slice::{self},
 };
 
 use pinocchio::{
     account_info::AccountInfo,
-    cpi::invoke_with_bounds,
-    instruction::{AccountMeta, Instruction},
+    cpi::invoke_signed_with_bounds,
+    instruction::{AccountMeta, Instruction, Signer},
     program_error::ProgramError,
     pubkey::Pubkey,
     ProgramResult,
 };
 
-use crate::{instructions::MAX_MULTISIG_SIGNERS, write_bytes, UNINIT_BYTE};
+use crate::instructions::{transfer_checked_with_fee_instruction_data, MAX_MULTISIG_SIGNERS};
 
 /// Transfer, providing expected mint information and fees
 ///
@@ -65,6 +65,11 @@ where
 impl TransferCheckedWithFee<'_, '_, '_> {
     #[inline(always)]
     pub fn invoke(&self) -> ProgramResult {
+        self.invoke_signed(&[])
+    }
+
+    #[inline(always)]
+    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
         let &Self {
             source_account,
             mint,
@@ -73,15 +78,15 @@ impl TransferCheckedWithFee<'_, '_, '_> {
             amount,
             decimals,
             fee,
-            signers,
+            signers: account_signers,
             token_program,
         } = self;
 
-        if signers.len() > MAX_MULTISIG_SIGNERS {
+        if account_signers.len() > MAX_MULTISIG_SIGNERS {
             return Err(ProgramError::InvalidArgument);
         }
 
-        let num_accounts = 4 + signers.len();
+        let num_accounts = 4 + account_signers.len();
 
         // Account metadata
         const UNINIT_META: MaybeUninit<AccountMeta> = MaybeUninit::<AccountMeta>::uninit();
@@ -103,7 +108,7 @@ impl TransferCheckedWithFee<'_, '_, '_> {
                 .get_unchecked_mut(2)
                 .write(AccountMeta::writable(destination.key()));
             // - Index 3 is always present
-            if signers.is_empty() {
+            if account_signers.is_empty() {
                 acc_metas
                     .get_unchecked_mut(3)
                     .write(AccountMeta::readonly_signer(source_account_authority.key()));
@@ -114,36 +119,16 @@ impl TransferCheckedWithFee<'_, '_, '_> {
             }
         }
 
-        for (account_meta, signer) in acc_metas[4..].iter_mut().zip(signers.iter()) {
+        for (account_meta, signer) in acc_metas[4..].iter_mut().zip(account_signers.iter()) {
             account_meta.write(AccountMeta::readonly_signer(signer.key()));
         }
 
-        // Instruction data layout:
-        // -  [0]: instruction TransferFeeExtension discriminator (1 byte, u8)
-        // -  [1]: instruction TransferCheckedWithFee discriminator (1 byte, u8)
-        // -  [2..10]: amount (8 bytes, u64)
-        // -  [10]: decimals (1 byte, u8)
-        // -  [11..19]: fee (8 bytes, u64)
-        let mut instruction_data = [UNINIT_BYTE; 19];
-
-        // -  [0]: instruction TransferFeeExtension discriminator (1 byte, u8)
-        // -  [1]: instruction TransferCheckedWithFee discriminator (1 byte, u8)
-        write_bytes(&mut instruction_data, &[26, 1]);
-
-        // Set amount as u64 at offset [2..10]
-        write_bytes(&mut instruction_data[2..10], amount.to_le_bytes().as_ref());
-        // Set amount as u8 at offset [10..11]
-        write_bytes(
-            &mut instruction_data[10..11],
-            decimals.to_le_bytes().as_ref(),
-        );
-        // Set fee as u64 at offset [11..19]
-        write_bytes(&mut instruction_data[11..19], fee.to_le_bytes().as_ref());
+        let data = transfer_checked_with_fee_instruction_data(amount, decimals, fee);
 
         let instruction = Instruction {
             program_id: token_program,
             accounts: unsafe { slice::from_raw_parts(acc_metas.as_ptr() as _, num_accounts) },
-            data: unsafe { from_raw_parts(instruction_data.as_ptr() as _, 19) },
+            data,
         };
 
         // Account info array
@@ -166,12 +151,14 @@ impl TransferCheckedWithFee<'_, '_, '_> {
         }
 
         // Fill signer accounts
-        for (account_info, signer) in acc_infos[4..].iter_mut().zip(signers.iter()) {
+        for (account_info, signer) in acc_infos[4..].iter_mut().zip(account_signers.iter()) {
             account_info.write(signer);
         }
 
-        invoke_with_bounds::<{ 4 + MAX_MULTISIG_SIGNERS }>(&instruction, unsafe {
-            slice::from_raw_parts(acc_infos.as_ptr() as _, num_accounts)
-        })
+        invoke_signed_with_bounds::<{ 4 + MAX_MULTISIG_SIGNERS }>(
+            &instruction,
+            unsafe { slice::from_raw_parts(acc_infos.as_ptr() as _, num_accounts) },
+            signers,
+        )
     }
 }

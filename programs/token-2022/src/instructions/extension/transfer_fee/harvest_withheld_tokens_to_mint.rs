@@ -2,12 +2,14 @@ use core::{mem::MaybeUninit, slice};
 
 use pinocchio::{
     account_info::AccountInfo,
-    cpi::{invoke_with_bounds, MAX_CPI_ACCOUNTS},
-    instruction::{AccountMeta, Instruction},
+    cpi::{invoke_signed_with_bounds, MAX_CPI_ACCOUNTS},
+    instruction::{AccountMeta, Instruction, Signer},
     program_error::ProgramError,
     pubkey::Pubkey,
     ProgramResult,
 };
+
+use crate::instructions::{TRANSFER_FEE_EXTENSION, WITHDRAW_WITHHELD_TOKENS_FROM_MINT};
 
 /// Permissionless instruction to transfer all withheld tokens to the mint.
 ///
@@ -35,6 +37,11 @@ where
 impl HarvestWithheldTokensToMint<'_, '_, '_> {
     #[inline(always)]
     pub fn invoke(&self) -> ProgramResult {
+        self.invoke_signed(&[])
+    }
+
+    #[inline(always)]
+    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
         let &Self {
             mint,
             source_accounts,
@@ -68,7 +75,7 @@ impl HarvestWithheldTokensToMint<'_, '_, '_> {
         // Instruction data layout:
         // -  [0]: instruction TransferFeeExtension discriminator (1 byte, u8)
         // -  [1]: instruction HarvestWithheldTokensToMint discriminator (1 byte, u8)
-        let instruction_data = [26, 4];
+        let instruction_data = [TRANSFER_FEE_EXTENSION, WITHDRAW_WITHHELD_TOKENS_FROM_MINT];
 
         let instruction = Instruction {
             program_id: token_program,
@@ -93,8 +100,10 @@ impl HarvestWithheldTokensToMint<'_, '_, '_> {
             account_info.write(source_account);
         }
 
-        invoke_with_bounds::<{ 1 + MAX_CPI_ACCOUNTS }>(&instruction, unsafe {
-            slice::from_raw_parts(acc_infos.as_ptr() as _, num_accounts)
-        })
+        invoke_signed_with_bounds::<{ 1 + MAX_CPI_ACCOUNTS }>(
+            &instruction,
+            unsafe { slice::from_raw_parts(acc_infos.as_ptr() as _, num_accounts) },
+            signers,
+        )
     }
 }

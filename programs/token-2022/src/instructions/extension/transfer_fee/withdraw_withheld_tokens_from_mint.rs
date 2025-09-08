@@ -2,14 +2,16 @@ use core::{mem::MaybeUninit, slice};
 
 use pinocchio::{
     account_info::AccountInfo,
-    cpi::invoke_with_bounds,
-    instruction::{AccountMeta, Instruction},
+    cpi::invoke_signed_with_bounds,
+    instruction::{AccountMeta, Instruction, Signer},
     program_error::ProgramError,
     pubkey::Pubkey,
     ProgramResult,
 };
 
-use crate::instructions::MAX_MULTISIG_SIGNERS;
+use crate::instructions::{
+    MAX_MULTISIG_SIGNERS, TRANSFER_FEE_EXTENSION, WITHDRAW_WITHHELD_TOKENS_FROM_MINT,
+};
 
 /// Transfer all withheld tokens in the mint to an account. Signed by the
 /// mint's withdraw withheld tokens authority.
@@ -47,19 +49,24 @@ where
 impl WithdrawWithheldTokensFromMint<'_, '_, '_> {
     #[inline(always)]
     pub fn invoke(&self) -> ProgramResult {
+        self.invoke_signed(&[])
+    }
+
+    #[inline(always)]
+    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
         let &Self {
             mint,
             destination,
             withdraw_withheld_authority,
-            signers,
+            signers: account_signers,
             token_program,
         } = self;
 
-        if signers.len() > MAX_MULTISIG_SIGNERS {
+        if account_signers.len() > MAX_MULTISIG_SIGNERS {
             return Err(ProgramError::InvalidArgument);
         }
 
-        let num_accounts = 3 + signers.len();
+        let num_accounts = 3 + account_signers.len();
 
         // Account metadata
         const UNINIT_META: MaybeUninit<AccountMeta> = MaybeUninit::<AccountMeta>::uninit();
@@ -77,7 +84,7 @@ impl WithdrawWithheldTokensFromMint<'_, '_, '_> {
                 .get_unchecked_mut(1)
                 .write(AccountMeta::writable(destination.key()));
             // - Index 2 is always present
-            if signers.is_empty() {
+            if account_signers.is_empty() {
                 acc_metas
                     .get_unchecked_mut(2)
                     .write(AccountMeta::readonly_signer(
@@ -90,14 +97,14 @@ impl WithdrawWithheldTokensFromMint<'_, '_, '_> {
             }
         }
 
-        for (account_meta, signer) in acc_metas[3..].iter_mut().zip(signers.iter()) {
+        for (account_meta, signer) in acc_metas[3..].iter_mut().zip(account_signers.iter()) {
             account_meta.write(AccountMeta::readonly_signer(signer.key()));
         }
 
         // Instruction data layout:
         // -  [0]: instruction TransferFeeExtension discriminator (1 byte, u8)
         // -  [1]: instruction WithdrawWithheldTokensFromMint discriminator (1 byte, u8)
-        let instruction_data = [26, 2];
+        let instruction_data = [TRANSFER_FEE_EXTENSION, WITHDRAW_WITHHELD_TOKENS_FROM_MINT];
 
         let instruction = Instruction {
             program_id: token_program,
@@ -123,12 +130,14 @@ impl WithdrawWithheldTokensFromMint<'_, '_, '_> {
         }
 
         // Fill signer accounts
-        for (account_info, signer) in acc_infos[3..].iter_mut().zip(signers.iter()) {
+        for (account_info, signer) in acc_infos[3..].iter_mut().zip(account_signers.iter()) {
             account_info.write(signer);
         }
 
-        invoke_with_bounds::<{ 3 + MAX_MULTISIG_SIGNERS }>(&instruction, unsafe {
-            slice::from_raw_parts(acc_infos.as_ptr() as _, num_accounts)
-        })
+        invoke_signed_with_bounds::<{ 3 + MAX_MULTISIG_SIGNERS }>(
+            &instruction,
+            unsafe { slice::from_raw_parts(acc_infos.as_ptr() as _, num_accounts) },
+            signers,
+        )
     }
 }
