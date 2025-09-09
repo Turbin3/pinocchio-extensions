@@ -2,8 +2,11 @@ use crate::{
     from_bytes_ref,
     state::{Mint, TokenAccount},
 };
-pub mod non_transferable;
-pub use non_transferable::*;
+
+pub mod permanent_delegate;
+pub use permanent_delegate::*;
+pub mod state;
+pub use state::*;
 
 pub const EXTENSIONS_PADDING: usize = 83;
 
