@@ -2,8 +2,44 @@ use crate::{
     from_bytes_ref,
     state::{Mint, TokenAccount},
 };
-pub mod non_transferable;
-pub use non_transferable::*;
+
+pub mod confidential_transfer_fee;
+pub use confidential_transfer_fee::*;
+
+pub const ELGAMAL_PUBKEY_LEN: usize = 32;
+
+pub const POD_AE_CIPHERTEXT_LEN: usize = 36;
+pub const POD_ELGAMAL_CIPHERTEXT_LEN: usize = 64;
+
+/// Local definition mirroring spl_token_confidential_transfer::pod::PodElGamalCiphertext
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[repr(C)]
+pub struct PodElGamalCiphertext(pub [u8; POD_ELGAMAL_CIPHERTEXT_LEN]);
+
+impl Default for PodElGamalCiphertext {
+    fn default() -> Self {
+        Self([0u8; POD_ELGAMAL_CIPHERTEXT_LEN])
+    }
+}
+
+/// Local definition mirroring spl_token_confidential_transfer::pod::PodAeCiphertext
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[repr(C)]
+pub struct PodAeCiphertext(pub [u8; POD_AE_CIPHERTEXT_LEN]);
+
+impl Default for PodAeCiphertext {
+    fn default() -> Self {
+        Self([0u8; POD_AE_CIPHERTEXT_LEN])
+    }
+}
+
+/// Alias for clarity, mirroring spl_token_confidential_transfer::instruction::DecryptableBalance
+pub type DecryptableBalance = PodAeCiphertext;
+/// Alias for clarity, mirroring spl_token_confidential_transfer::state::EncryptedBalance
+pub type EncryptedBalance = PodElGamalCiphertext;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct PodElGamalPubkey(pub [u8; ELGAMAL_PUBKEY_LEN]);
 
 pub const EXTENSIONS_PADDING: usize = 83;
 
