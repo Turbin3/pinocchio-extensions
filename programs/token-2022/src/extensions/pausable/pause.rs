@@ -114,6 +114,7 @@ impl Pause<'_, '_, '_> {
             accounts: unsafe { from_raw_parts(account_metas.as_ptr() as _, num_accounts) },
             data: unsafe { from_raw_parts(instruction_data.as_ptr() as _, instruction_data.len()) },
         };
+
         const UNINIT_INFO: MaybeUninit<&AccountInfo> = MaybeUninit::uninit();
         let mut acc_infos = [UNINIT_INFO; 2 + MAX_MULTISIG_SIGNERS];
 
