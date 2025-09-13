@@ -31,41 +31,63 @@ The test setup consists of four main components:
 - **Function**: Acts as an intermediary that executes Token-2022 operations through CPI
 - **Why Important**: Simulates how other programs would integrate with Pinocchio interface in production
 
-### 3. Proxy Handlers (Test Functions)
-- **Naming Convention**: Functions prefixed with `token_2022_proxy_*`
-- **Purpose**: Execute Token-2022-proxy program instructions using SPL Token-2022 interface
+### 3. Target-Based Execution System
+- **Purpose**: Unified system for switching between SPL and Proxy program execution
 - **Benefits**:
-  - Simplified test creation without manual instruction building
-  - Consistent testing patterns across different instructions
-  - Easy state reading using Pinocchio interface
+  - Single interface for testing both execution paths
+  - Eliminates code duplication
+  - Provides consistent testing patterns
 
-### 4. SPL Handlers (Test Functions)
-- **Naming Convention**: Functions prefixed with `token_2022_*` (without proxy)
-- **Purpose**: Direct execution of Token-2022 program instructions using native SPL interface
-- **Use Case**: Setup and prerequisite operations for testing specific instructions
-- **Example**: When testing `mint_to`, you first need `initialize_mint` - SPL handlers make this setup trivial
+### 4. Test Functions
+- **Design**: Functions that handle both SPL and Proxy execution based on `Target` parameter
+- **Purpose**: Execute Token-2022 operations and query state through either interface
+- **Advantages**:
+  - Simplified test creation without manual instruction building
+  - Easy state reading using both SPL and Pinocchio interfaces
+  - Consistent behavior across different instructions
 
 ## Code Structure
 
+### Target Enum
+
+The `Target` enum controls which execution path and interface to use:
+
+```rust
+/// Switch between SPL and Proxy programs
+pub enum Target {
+    /// Execute token-2022 instruction directly, read state using SPL interface
+    Spl,
+    /// Execute token-2022 instruction using proxy program, read state using Pinocchio interface
+    Proxy,
+}
+```
+
 ### Trait Organization
-Each Token-2022 instruction has its own trait containing both proxy and SPL handlers:
+Each Token-2022 instruction has its own trait with unified handlers:
 
 ```rust
 pub trait Token2022InitializeMintExtension {
     // Account management
-    fn token_2022_try_create_mint_account(...) -> TestResult<(TransactionMetadata, Keypair)>;
+    fn token_2022_try_create_mint_account(
+        &mut self,
+        sender: AppUser,
+        mint: Option<Keypair>,
+        extensions: Option<&[ExtensionType]>,
+    ) -> TestResult<(TransactionMetadata, Keypair)>;
     
-    // Direct SPL execution
-    fn token_2022_try_initialize_mint(...) -> TestResult<TransactionMetadata>;
+    // Unified execution (Target determines SPL vs Proxy)
+    fn token_2022_try_initialize_mint(
+        &mut self,
+        target: Target,
+        sender: AppUser,
+        mint: &Pubkey,
+        decimals: u8,
+        mint_authority: &Pubkey,
+        freeze_authority: Option<&Pubkey>,
+    ) -> TestResult<TransactionMetadata>;
     
-    // Proxy execution (tests Pinocchio interface)
-    fn token_2022_proxy_try_initialize_mint(...) -> TestResult<TransactionMetadata>;
-    
-    // State reading via SPL interface
-    fn token_2022_query_mint_state(...) -> TestResult<spl_token_2022_interface::state::Mint>;
-    
-    // State reading via Pinocchio interface  
-    fn token_2022_proxy_query_mint_state(...) -> TestResult<spl_token_2022_interface::state::Mint>;
+    // Unified state reading (Target determines interface)
+    fn token_2022_query_mint(&self, target: Target, mint: &Pubkey) -> TestResult<Mint>;
 }
 ```
 
@@ -76,8 +98,8 @@ pub trait Token2022InitializeMintExtension {
 #[test]
 fn initialize_mint() -> TestResult<()> {
     // Tests direct Token-2022 program execution
-    app.token_2022_try_initialize_mint(...)?;
-    assert_eq!(app.token_2022_query_mint_state(mint)?, expected_state);
+    app.token_2022_try_initialize_mint(Target::Spl, ...)?;
+    assert_eq!(app.token_2022_query_mint(Target::Spl, mint)?, expected_state);
 }
 ```
 
@@ -86,8 +108,8 @@ fn initialize_mint() -> TestResult<()> {
 #[test] 
 fn proxy_initialize_mint() -> TestResult<()> {
     // Tests Pinocchio interface through proxy program
-    app.token_2022_proxy_try_initialize_mint(...)?;
-    assert_eq!(app.token_2022_proxy_query_mint_state(mint)?, expected_state);
+    app.token_2022_try_initialize_mint(Target::Proxy, ...)?;
+    assert_eq!(app.token_2022_query_mint(Target::Proxy, mint)?, expected_state);
 }
 ```
 
@@ -112,20 +134,27 @@ fn proxy_initialize_mint() -> TestResult<()> {
 1. **Create a new trait** for your instruction:
 ```rust
 pub trait Token2022YourInstructionExtension {
-    fn token_2022_try_your_instruction(...) -> TestResult<TransactionMetadata>;
-    fn token_2022_proxy_try_your_instruction(...) -> TestResult<TransactionMetadata>;
-    fn token_2022_query_your_state(...) -> TestResult<YourState>;
-    fn token_2022_proxy_query_your_state(...) -> TestResult<YourState>;
+    fn token_2022_try_your_instruction(
+        &mut self,
+        target: Target,
+        // ... other parameters
+    ) -> TestResult<TransactionMetadata>;
+    
+    fn token_2022_query_your_state(
+        &self,
+        target: Target, 
+        account: &Pubkey,
+    ) -> TestResult<YourState>;
 }
 ```
 
 2. **Implement the trait** following the established patterns:
-   - SPL handlers for direct program interaction
-   - Proxy handlers for CPI testing
-   - State query methods for both interfaces
+   - Use `Target` to determine execution path and state reading interface
+   - Handle both SPL direct execution and proxy CPI calls
+   - Implement state query methods for both interfaces
 
 3. **Create test file** with both direct and proxy tests:
-   - Test the instruction execution
+   - Test the instruction execution with both targets
    - Verify state changes
    - Test error conditions
    - Validate CPI behavior
@@ -151,8 +180,8 @@ pub trait Token2022YourInstructionExtension {
 
 ### Test Patterns
 
-1. **Setup Phase**: Use SPL handlers to create necessary accounts and initial state
-2. **Execution Phase**: Test both direct and proxy instruction execution
+1. **Setup Phase**: Create necessary accounts and initial state
+2. **Execution Phase**: Test both `Target::Spl` and `Target::Proxy` execution
 3. **Validation Phase**: Compare state using both SPL and Pinocchio interfaces
 4. **Edge Cases**: Test error conditions and boundary cases
 
@@ -161,7 +190,7 @@ pub trait Token2022YourInstructionExtension {
 When contributing to the Pinocchio interface:
 
 1. **Add Tests First**: Create comprehensive tests for any new interface implementations
-2. **Follow Patterns**: Use the established trait and testing patterns
+2. **Follow Patterns**: Use the established trait and testing patterns with `Target` enum
 3. **Test Both Paths**: Always test both direct SPL and proxy execution
 4. **Validate State**: Ensure state reading works correctly through Pinocchio interface
 5. **Document Edge Cases**: Add tests for error conditions and special cases

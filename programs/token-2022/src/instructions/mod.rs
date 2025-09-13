@@ -3,6 +3,7 @@ mod approve_checked;
 mod burn;
 mod burn_checked;
 mod close_account;
+pub mod extension;
 mod freeze_account;
 mod initialize_account;
 mod initialize_account_2;

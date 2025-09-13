@@ -5209,6 +5209,7 @@ dependencies = [
 name = "tests"
 version = "1.0.0"
 dependencies = [
+ "bytemuck",
  "litesvm",
  "pinocchio",
  "pinocchio-pubkey",
@@ -5229,8 +5230,10 @@ dependencies = [
  "solana-system-interface 2.0.0",
  "solana-transaction",
  "spl-associated-token-account",
+ "spl-pod 0.7.1",
  "spl-token",
  "spl-token-2022-interface",
+ "spl-token-group-interface 0.7.1",
  "strum",
  "strum_macros",
  "token-2022-proxy",
@@ -5311,7 +5314,9 @@ dependencies = [
  "pinocchio-token-2022",
  "solana-address",
  "solana-program-option 3.0.0",
+ "spl-pod 0.7.1",
  "spl-token-2022-interface",
+ "spl-token-group-interface 0.7.1",
 ]
 
 [[package]]

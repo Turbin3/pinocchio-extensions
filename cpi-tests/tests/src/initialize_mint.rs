@@ -3,7 +3,7 @@ use {
         extensions::token_2022::initialize_mint::Token2022InitializeMintExtension,
         suite::{
             core::App,
-            types::{pin_pubkey_to_addr, to_c_option, AppUser, PinPubkey, TestResult},
+            types::{pin_pubkey_to_addr, to_c_option, AppUser, PinPubkey, Target, TestResult},
         },
     },
     pretty_assertions::assert_eq,
@@ -29,13 +29,14 @@ fn initialize_mint() -> TestResult<()> {
     };
 
     app.token_2022_try_initialize_mint(
+        Target::Spl,
         AppUser::Admin,
         mint,
         decimals,
         &mint_authority,
         freeze_authority.as_ref(),
     )?;
-    assert_eq!(app.token_2022_query_mint_state(mint)?, mint_state);
+    assert_eq!(app.token_2022_query_mint(Target::Spl, mint)?, mint_state);
 
     Ok(())
 }
@@ -59,7 +60,8 @@ fn proxy_initialize_mint() -> TestResult<()> {
 
     // 1st to initialize mint, 2nd to run internal checks
     for _ in [0..=1] {
-        app.token_2022_proxy_try_initialize_mint(
+        app.token_2022_try_initialize_mint(
+            Target::Proxy,
             AppUser::Admin,
             mint,
             decimals,
@@ -67,8 +69,7 @@ fn proxy_initialize_mint() -> TestResult<()> {
             freeze_authority.as_ref(),
         )?;
     }
-    assert_eq!(app.token_2022_proxy_query_mint_state(mint)?, mint_state);
-    assert_eq!(app.token_2022_query_mint_state(mint)?, mint_state);
+    assert_eq!(app.token_2022_query_mint(Target::Proxy, mint)?, mint_state);
 
     Ok(())
 }
