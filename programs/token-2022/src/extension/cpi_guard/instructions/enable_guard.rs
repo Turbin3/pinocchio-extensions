@@ -15,18 +15,18 @@ use pinocchio::{
     ProgramResult,
 };
 
-pub struct EnableCpiGuard<'a, 'b, 'c> {
+pub struct EnableCpiGuard<'a, 'c> {
     /// Token Account to update.
     pub token_account: &'a AccountInfo,
     /// Owner Account.
     pub owner: &'a AccountInfo,
     /// Signer Accounts (for multisig support)
-    pub signers: &'b [&'a AccountInfo],
+    pub signers: &'a [AccountInfo],
     /// Token Program
     pub token_program: &'c Pubkey,
 }
 
-impl EnableCpiGuard<'_, '_, '_> {
+impl EnableCpiGuard<'_, '_> {
     #[inline(always)]
     pub fn invoke(&self) -> ProgramResult {
         self.invoke_signed(&[])

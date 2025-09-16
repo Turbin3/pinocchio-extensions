@@ -2,7 +2,7 @@ use core::slice;
 
 use crate::{
     extension::scaled_ui_amount::state::{
-        scaled_ui_amount_instruction_data, ScaledUiAmountInstruction,
+        scaled_ui_amount_initialize_instruction_data, ScaledUiAmountInstruction,
     },
 };
 
@@ -16,6 +16,10 @@ use pinocchio::{
 pub struct InitializeScaledUiAmount<'a, 'b> {
     /// Mint Account to initialize.
     pub mint_account: &'a AccountInfo,
+    /// Authority that can update the multiplier
+    pub authority: Pubkey,
+    /// Initial multiplier
+    pub multiplier: f64,
     /// Token Program
     pub token_program: &'b Pubkey,
 }
@@ -30,6 +34,8 @@ impl InitializeScaledUiAmount<'_, '_> {
     pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
         let &Self {
             mint_account,
+            authority,
+            multiplier,
             token_program,
         } = self;
 
@@ -37,7 +43,11 @@ impl InitializeScaledUiAmount<'_, '_> {
             AccountMeta::writable(mint_account.key()),
         ];
 
-        let data = scaled_ui_amount_instruction_data(ScaledUiAmountInstruction::Initialize);
+        let data = scaled_ui_amount_initialize_instruction_data(
+            ScaledUiAmountInstruction::Initialize,
+            authority,
+            multiplier,
+        );
 
         let instruction = Instruction {
             accounts: &account_metas,

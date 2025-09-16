@@ -21,7 +21,7 @@ pub struct UpdateMultiplier<'a, 'b, 'c> {
     /// Authority Account.
     pub authority: &'a AccountInfo,
     /// Signer Accounts (for multisig support)
-    pub signers: &'b [&'a AccountInfo],
+    pub signers: &'b [AccountInfo],
     /// Token Program
     pub token_program: &'c Pubkey,
     /// The new multiplier
