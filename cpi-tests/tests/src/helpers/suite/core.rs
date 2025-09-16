@@ -5,8 +5,8 @@ use {
             get_token_account_balance, mint_tokens_to_account,
         },
         types::{
-            addr_to_sol_pubkey, AppAsset, AppCoin, AppToken, AppUser, GetDecimals, SolPubkey,
-            TestError, TestResult,
+            addr_to_sol_pubkey, pin_to_sol_pubkey, AppAsset, AppCoin, AppToken, AppUser,
+            GetDecimals, SolPubkey, TestError, TestResult,
         },
     },
     litesvm::{types::TransactionMetadata, LiteSVM},
@@ -15,7 +15,7 @@ use {
     solana_keypair::Keypair,
     solana_program::native_token::LAMPORTS_PER_SOL,
     solana_pubkey::Pubkey,
-    solana_signer::signers::Signers,
+    solana_signer::{signers::Signers, Signer},
     solana_system_interface,
     solana_transaction::Transaction,
     spl_associated_token_account::get_associated_token_address,
@@ -142,6 +142,42 @@ impl App {
 
     // utils
 
+    pub fn transfer_sol(
+        &mut self,
+        sender: AppUser,
+        recipient: &Pubkey,
+        amount: u64,
+    ) -> TestResult<TransactionMetadata> {
+        let payer = &sender.pubkey();
+        let signers = &[sender.keypair()];
+        let ix = solana_system_interface::instruction::transfer(
+            &payer.to_bytes().into(),
+            &recipient.to_bytes().into(),
+            amount,
+        );
+
+        let ix_legacy = solana_instruction::Instruction {
+            program_id: addr_to_sol_pubkey(&ix.program_id),
+            accounts: ix
+                .accounts
+                .into_iter()
+                .map(|x| solana_instruction::AccountMeta {
+                    pubkey: addr_to_sol_pubkey(&x.pubkey),
+                    is_signer: x.is_signer,
+                    is_writable: x.is_writable,
+                })
+                .collect(),
+            data: ix.data,
+        };
+
+        extension::send_tx(
+            &mut self.litesvm,
+            &[ix_legacy],
+            signers,
+            self.is_log_displayed,
+        )
+    }
+
     pub fn get_balance(&self, user: AppUser, asset: impl Into<AppAsset>) -> u64 {
         let address = &user.pubkey();
 
@@ -193,6 +229,53 @@ impl App {
         create_associated_token_account(litesvm, owner, mint, sender)
             .map_err(TestError::from_unknown)
     }
+
+    pub fn create_account(
+        &mut self,
+        sender: AppUser,
+        new_account: Option<Keypair>,
+        space: usize,
+        owner: &Pubkey,
+    ) -> TestResult<(TransactionMetadata, Keypair)> {
+        let account_keypair = new_account.unwrap_or(Keypair::new());
+        let signers = &[&sender.keypair(), &account_keypair];
+
+        let lamports = self
+            .litesvm
+            .get_sysvar::<solana_program::sysvar::rent::Rent>()
+            .minimum_balance(space);
+
+        let ix = solana_system_interface::instruction::create_account(
+            &sender.pubkey().to_bytes().into(),
+            &account_keypair.pubkey().to_bytes().into(),
+            lamports,
+            space as u64,
+            &owner.to_bytes().into(),
+        );
+
+        let ix_legacy = solana_instruction::Instruction {
+            program_id: addr_to_sol_pubkey(&ix.program_id),
+            accounts: ix
+                .accounts
+                .into_iter()
+                .map(|x| solana_instruction::AccountMeta {
+                    pubkey: addr_to_sol_pubkey(&x.pubkey),
+                    is_signer: x.is_signer,
+                    is_writable: x.is_writable,
+                })
+                .collect(),
+            data: ix.data,
+        };
+
+        let tx_metadata = extension::send_tx(
+            &mut self.litesvm,
+            &[ix_legacy],
+            signers,
+            self.is_log_displayed,
+        )?;
+
+        Ok((tx_metadata, account_keypair))
+    }
 }
 
 impl Default for App {
@@ -232,6 +315,13 @@ fn upload_program(litesvm: &mut LiteSVM, program_name: &str, program_id: &Pubkey
 
 pub mod extension {
     use super::*;
+
+    pub fn get_account_data(app: &App, pubkey: &pinocchio::pubkey::Pubkey) -> TestResult<Vec<u8>> {
+        app.litesvm
+            .get_account(&pin_to_sol_pubkey(pubkey))
+            .map(|x| x.data)
+            .ok_or(TestError::from_raw_error("The account isn't found"))
+    }
 
     pub fn send_tx<S>(
         litesvm: &mut LiteSVM,
