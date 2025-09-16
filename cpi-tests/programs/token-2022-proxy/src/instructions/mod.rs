@@ -1,3 +1,7 @@
-pub mod initialize_mint;
+pub mod group_member_pointer;
+pub mod group_pointer;
+pub mod token_group;
 
-pub use initialize_mint::*;
+mod initialize_mint;
+
+pub use initialize_mint::initialize_mint;

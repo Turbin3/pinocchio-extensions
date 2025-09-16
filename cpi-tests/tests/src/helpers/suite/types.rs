@@ -278,6 +278,14 @@ impl TestError {
     }
 }
 
+/// to switch between SPL and Proxy programs
+pub enum Target {
+    /// execute token-2022 instruction directly, read token-2022 state using spl interface
+    Spl,
+    /// execute token-2022 instruction using proxy program, read token-2022 state using pinocchio interface
+    Proxy,
+}
+
 pub fn sol_to_pin_pubkey(sol_pubkey: &solana_pubkey::Pubkey) -> pinocchio::pubkey::Pubkey {
     pinocchio::pubkey::Pubkey::from(sol_pubkey.to_bytes())
 }
@@ -298,5 +306,14 @@ pub fn to_c_option<T>(data: Option<T>) -> COption<T> {
     match data {
         Some(x) => COption::Some(x),
         None => COption::None,
+    }
+}
+
+pub fn to_optional_non_zero_pubkey(
+    data: Option<&pinocchio::pubkey::Pubkey>,
+) -> spl_pod::optional_keys::OptionalNonZeroPubkey {
+    match data {
+        Some(x) => spl_pod::optional_keys::OptionalNonZeroPubkey(pin_pubkey_to_addr(x)),
+        None => spl_pod::optional_keys::OptionalNonZeroPubkey::default(),
     }
 }
