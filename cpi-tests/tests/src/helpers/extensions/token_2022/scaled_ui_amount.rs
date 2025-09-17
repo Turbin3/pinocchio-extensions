@@ -6,7 +6,7 @@ use {
         },
         types::{
             addr_to_sol_pubkey, pin_pubkey_to_addr, to_optional_non_zero_pubkey, AppUser,
-            PinPubkey, SolPubkey, Target, TestError, TestResult,
+            SolPubkey, Target, TestError, TestResult,
         },
     },
     litesvm::types::TransactionMetadata,

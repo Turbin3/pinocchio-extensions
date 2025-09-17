@@ -7,14 +7,12 @@ use {
         },
         suite::{
             core::App,
-            types::{pin_pubkey_to_addr, AppUser, PinPubkey, Target, TestResult},
+            types::{AppUser, PinPubkey, Target, TestResult},
         },
     },
     pretty_assertions::assert_eq,
     solana_signer::Signer,
     spl_token_2022_interface::extension::{scaled_ui_amount::ScaledUiAmountConfig, ExtensionType},
-    pinocchio::pubkey::Pubkey,
-    spl_pod::optional_keys::OptionalNonZeroPubkey,
 };
 
 #[test]

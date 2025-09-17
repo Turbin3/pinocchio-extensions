@@ -15,6 +15,15 @@ pub fn enable_guard(accounts: &[AccountInfo], _instruction_data: &[u8]) -> Progr
     let owner = &accounts[1];
     let signers = &accounts[2..accounts.len() - 1]; // everything between owner and token_program
 
+    {
+        let acc = account.try_borrow_data()?;
+        let state = pinocchio_token_2022::extension::cpi_guard::state::CpiGuard::from_bytes(&acc)?;
+
+        if state.lock_cpi() {
+            return Ok(());
+        }
+    }
+
     cpi_guard::EnableCpiGuard {
         token_account: account,
         owner,

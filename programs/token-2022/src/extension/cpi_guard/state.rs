@@ -1,7 +1,7 @@
+use crate::extension::consts::CPI_GUARD_EXTENSION;
+use crate::{write_bytes, UNINIT_BYTE};
 use core::mem::MaybeUninit;
 use pinocchio::program_error::ProgramError;
-use crate::{write_bytes, UNINIT_BYTE};
-use crate::extension::consts::CPI_GUARD_EXTENSION;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -19,9 +19,9 @@ pub struct CpiGuard {
 
 impl CpiGuard {
     /// The length of the account with `CpiGuard` extension data
-    const LEN: u8 = 165;
+    const LEN: u8 = 171;
     /// The index where CPI guard data starts in the account with `CpiGuard` extension data
-    const CPI_GUARD_START: u8 = 101;
+    const CPI_GUARD_START: u8 = 170;
 
     /// The length of the `CpiGuard` extension data.
     pub const BASE_LEN: usize = core::mem::size_of::<CpiGuard>();
@@ -55,13 +55,10 @@ impl CpiGuard {
     }
 }
 
-pub fn cpi_guard_instruction_data(
-    instruction_type: CpiGuardInstruction,
-) -> [MaybeUninit<u8>; 2] {
+pub fn cpi_guard_instruction_data(instruction_type: CpiGuardInstruction) -> [MaybeUninit<u8>; 2] {
     // instruction data
     // -  [0]: instruction discriminator (1 byte, u8)
     // -  [1]: instruction_type (1 byte, u8)
-    
     let mut data = [UNINIT_BYTE; 2];
     // Set extension discriminator at offset [0]
     write_bytes(&mut data, &[CPI_GUARD_EXTENSION]);

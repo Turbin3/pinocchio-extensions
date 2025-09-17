@@ -26,7 +26,7 @@ pub struct ScaledUiAmountConfig {
 
 impl ScaledUiAmountConfig {
     /// The length of the mint with `ScaledUiAmount` extension data
-    const LEN: u8 = 234;
+    const LEN: u8 = 226;
     /// The index where authority address starts in the mint with `ScaledUiAmount` extension data
     const AUTHORITY_START: u8 = 170;
 
