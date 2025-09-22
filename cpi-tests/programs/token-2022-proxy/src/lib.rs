@@ -90,20 +90,20 @@ pub fn process_instruction(
                     }
                 }
 
-                // TokenInstruction::ScaledUiAmountExtension => {
-                //     let instruction_data = &instruction_data[1..]; // Remove extension discriminator
-                //     let ix: ScaledUiAmountMintInstruction = decode_instruction_type(instruction_data)
-                //         .map_err(|_| ProgramError::InvalidInstructionData)?;
+                TokenInstruction::ScaledUiAmountExtension => {
+                    let instruction_data = &instruction_data[1..]; // Remove extension discriminator
+                    let ix: ScaledUiAmountMintInstruction = decode_instruction_type(instruction_data)
+                        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
-                //     match ix {
-                //         ScaledUiAmountMintInstruction::Initialize => {
-                //             i::scaled_ui_amount::initialize_scaled_ui_amount(accounts, instruction_data)
-                //         }
-                //         ScaledUiAmountMintInstruction::UpdateMultiplier => {
-                //             i::scaled_ui_amount::update_multiplier(accounts, instruction_data)
-                //         }
-                //     }
-                // }
+                    match ix {
+                        ScaledUiAmountMintInstruction::Initialize => {
+                            i::scaled_ui_amount::initialize_scaled_ui_amount(accounts, instruction_data)
+                        }
+                        ScaledUiAmountMintInstruction::UpdateMultiplier => {
+                            i::scaled_ui_amount::update_multiplier(accounts, instruction_data)
+                        }
+                    }
+                }
 
                 _ => Err(ProgramError::InvalidInstructionData)?,
             }
