@@ -1,7 +1,7 @@
 pub mod group_member_pointer;
 pub mod group_pointer;
 pub mod token_group;
-pub mod template_token_account;
+pub mod cpi_guard;
 
 mod initialize_mint;
 

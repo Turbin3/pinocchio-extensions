@@ -61,7 +61,7 @@ pub fn cpi_guard_instruction_data(instruction_type: CpiGuardInstruction) -> [May
     // -  [1]: instruction_type (1 byte, u8)
     let mut data = [UNINIT_BYTE; 2];
     // Set extension discriminator at offset [0]
-    write_bytes(&mut data, &[CPI_GUARD_EXTENSION]);
+    write_bytes(&mut data, &[TEMPLATE_TOKEN_ACCOUNT_EXTENSION]);
     // Set sub-instruction at offset [1]
     write_bytes(&mut data[1..2], &[instruction_type as u8]);
 
