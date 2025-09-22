@@ -4,7 +4,7 @@ use crate::{
     extension::cpi_guard::state::{
         cpi_guard_instruction_data, CpiGuardInstruction,
     },
-    instructions::MAX_MULTISIG_SIGNERS,
+    extension::consts::MAX_MULTISIG_SIGNERS,
 };
 
 use pinocchio::{

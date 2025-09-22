@@ -42,38 +42,7 @@ pub fn process_instruction(
                     decimals,
                     mint_authority,
                     freeze_authority,
-                } => i::initialize_mint(accounts, decimals, mint_authority, freeze_authority),
-
-                TokenInstruction::GroupPointerExtension => {
-                    let instruction_data = &instruction_data[1..]; // Remove extension discriminator
-                    let ix: GroupPointerInstruction = decode_instruction_type(instruction_data)
-                        .map_err(|_| ProgramError::InvalidInstructionData)?;
-
-                    match ix {
-                        GroupPointerInstruction::Initialize => {
-                            i::group_pointer::initialize(accounts, instruction_data)
-                        }
-                        GroupPointerInstruction::Update => {
-                            i::group_pointer::update(accounts, instruction_data)
-                        }
-                    }
-                }
-
-                TokenInstruction::GroupMemberPointerExtension => {
-                    let instruction_data = &instruction_data[1..]; // Remove extension discriminator
-                    let ix: GroupMemberPointerInstruction =
-                        decode_instruction_type(instruction_data)
-                            .map_err(|_| ProgramError::InvalidInstructionData)?;
-
-                    match ix {
-                        GroupMemberPointerInstruction::Initialize => {
-                            i::group_member_pointer::initialize(accounts, instruction_data)
-                        }
-                        GroupMemberPointerInstruction::Update => {
-                            i::group_member_pointer::update(accounts, instruction_data)
-                        }
-                    }
-                }
+                } => i::initialize_mint(accounts, decimals, mint_authority, freeze_authority),                
 
                 TokenInstruction::CpiGuardExtension => {
                     let instruction_data = &instruction_data[1..]; // Remove extension discriminator
@@ -109,25 +78,7 @@ pub fn process_instruction(
             }
         }
         Err(_) => {
-            // try to match TokenGroupInstruction
-            match TokenGroupInstruction::unpack(instruction_data) {
-                Ok(token_instruction) => match token_instruction {
-                    TokenGroupInstruction::InitializeGroup(InitializeGroup {
-                        update_authority,
-                        max_size,
-                    }) => i::token_group::initialize_group(accounts, update_authority, max_size),
-                    TokenGroupInstruction::UpdateGroupMaxSize(UpdateGroupMaxSize { max_size }) => {
-                        i::token_group::update_max_size(accounts, max_size)
-                    }
-                    TokenGroupInstruction::UpdateGroupAuthority(UpdateGroupAuthority {
-                        new_authority,
-                    }) => i::token_group::update_group_authority(accounts, new_authority),
-                    TokenGroupInstruction::InitializeMember(InitializeMember) => {
-                        i::token_group::initialize_member(accounts)
-                    }
-                },
-                _ => Err(ProgramError::InvalidInstructionData)?,
-            }
+            Err(ProgramError::InvalidInstructionData)?
         }
     }
 }

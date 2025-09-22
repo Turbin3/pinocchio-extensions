@@ -4,7 +4,7 @@ use crate::{
     extension::scaled_ui_amount::state::{
         scaled_ui_amount_update_multiplier_instruction_data, ScaledUiAmountInstruction,
     },
-    instructions::MAX_MULTISIG_SIGNERS,
+    extension::consts::MAX_MULTISIG_SIGNERS,
 };
 
 use pinocchio::{
