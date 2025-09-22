@@ -1,0 +1,1 @@
+pub mod template_token_account;
