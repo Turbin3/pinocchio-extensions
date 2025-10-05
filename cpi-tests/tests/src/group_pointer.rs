@@ -238,6 +238,14 @@ fn proxy_initialize_and_update_group_pointer() -> TestResult<()> {
         }
     );
 
+    assert_eq!(
+        app.token_2022_query_group_pointer(Target::Spl, mint_pubkey)?,
+        GroupPointer {
+            authority: OptionalNonZeroPubkey(pin_pubkey_to_addr(&mint_authority.pubkey())),
+            group_address: OptionalNonZeroPubkey::default(),
+        }
+    );
+
     Ok(())
 }
 
