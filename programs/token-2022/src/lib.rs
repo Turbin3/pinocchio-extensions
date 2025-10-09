@@ -1,6 +1,5 @@
 #![no_std]
-
-pub mod extensions;
+pub mod extension;
 pub mod instructions;
 pub mod state;
 
