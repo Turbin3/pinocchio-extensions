@@ -1,5 +1,5 @@
 use crate::{
-    extensions::default_account_state::state::{
+    extension::default_account_state::state::{
         encode_instruction_data, DefaultAccountStateInstruction,
     },
     state::AccountState,
