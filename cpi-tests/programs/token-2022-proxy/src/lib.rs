@@ -9,8 +9,14 @@ use {
     pinocchio_pubkey::declare_id,
     spl_token_2022_interface::{
         extension::{
+            cpi_guard::instruction::CpiGuardInstruction,
+            default_account_state::instruction::DefaultAccountStateInstruction,
             group_member_pointer::instruction::GroupMemberPointerInstruction,
             group_pointer::instruction::GroupPointerInstruction,
+            interest_bearing_mint::instruction::InterestBearingMintInstruction,
+            pausable::instruction::PausableInstruction,
+            scaled_ui_amount::instruction::ScaledUiAmountMintInstruction,
+            transfer_hook::instruction::TransferHookInstruction,
             memo_transfer::instruction::RequiredMemoTransfersInstruction,
             metadata_pointer::instruction::MetadataPointerInstruction,
         },
@@ -97,6 +103,98 @@ pub fn process_instruction(
 
                 TokenInstruction::InitializePermanentDelegate { delegate } => {
                     initialize_permanent_delegate(accounts, delegate)
+                }
+                TokenInstruction::CpiGuardExtension => {
+                    let instruction_data = &instruction_data[1..]; // Remove extension discriminator
+                    let ix: CpiGuardInstruction = decode_instruction_type(instruction_data)
+                        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+                    match ix {
+                        CpiGuardInstruction::Enable => {
+                            i::cpi_guard::enable_guard(accounts, instruction_data)
+                        }
+                        CpiGuardInstruction::Disable => {
+                            i::cpi_guard::disable_guard(accounts, instruction_data)
+                        }
+                    }
+                }
+
+                TokenInstruction::ScaledUiAmountExtension => {
+                    let instruction_data = &instruction_data[1..]; // Remove extension discriminator
+                    let ix: ScaledUiAmountMintInstruction = decode_instruction_type(instruction_data)
+                        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+                    match ix {
+                        ScaledUiAmountMintInstruction::Initialize => {
+                            i::scaled_ui_amount::initialize_scaled_ui_amount(accounts, instruction_data)
+                        }
+                        ScaledUiAmountMintInstruction::UpdateMultiplier => {
+                            i::scaled_ui_amount::update_multiplier(accounts, instruction_data)
+                        }
+                    }
+                }
+
+                TokenInstruction::DefaultAccountStateExtension => {
+                    let instruction_data = &instruction_data[1..]; // Remove extension discriminator
+                    let ix: DefaultAccountStateInstruction = decode_instruction_type(instruction_data)
+                        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+                    match ix {
+                        DefaultAccountStateInstruction::Initialize => {
+                            i::default_account_state::initialize(accounts, instruction_data)
+                        }
+                        DefaultAccountStateInstruction::Update => {
+                            i::default_account_state::update(accounts, instruction_data)
+                        }
+                    }
+                }
+
+                TokenInstruction::PausableExtension => {
+                    let instruction_data = &instruction_data[1..]; // Remove extension discriminator
+                    let ix: PausableInstruction = decode_instruction_type(instruction_data)
+                        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+                    match ix {
+                        PausableInstruction::Initialize => {
+                            i::pausable::initialize(accounts, instruction_data)
+                        }
+                        PausableInstruction::Pause => {
+                            i::pausable::pause(accounts, instruction_data)
+                        }
+                        PausableInstruction::Resume => {
+                            i::pausable::resume(accounts, instruction_data)
+                        }
+                    }
+                }
+
+                TokenInstruction::TransferHookExtension => {
+                    let instruction_data = &instruction_data[1..]; // Remove extension discriminator
+                    let ix: TransferHookInstruction = decode_instruction_type(instruction_data)
+                        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+                    match ix {
+                        TransferHookInstruction::Initialize => {
+                            i::transfer_hook::initialize(accounts, instruction_data)
+                        }
+                        TransferHookInstruction::Update => {
+                            i::transfer_hook::update(accounts, instruction_data)
+                        }
+                    }
+                }
+
+                TokenInstruction::InterestBearingMintExtension => {
+                    let instruction_data = &instruction_data[1..]; // Remove extension discriminator
+                    let ix: InterestBearingMintInstruction = decode_instruction_type(instruction_data)
+                        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+                    match ix {
+                        InterestBearingMintInstruction::Initialize => {
+                            i::interest_bearing_mint::initialize(accounts, instruction_data)
+                        }
+                        InterestBearingMintInstruction::UpdateRate => {
+                            i::interest_bearing_mint::update_rate(accounts, instruction_data)
+                        }
+                    }
                 }
 
                 // MemoTransfer Extention
