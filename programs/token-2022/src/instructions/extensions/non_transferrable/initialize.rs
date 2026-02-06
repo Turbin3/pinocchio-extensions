@@ -45,13 +45,13 @@ impl Initialize<'_, '_> {
         // Account Metadata
         const UNINIT_INSTRUCTION_ACCOUNTS: MaybeUninit<InstructionAccount> =
             MaybeUninit::<InstructionAccount>::uninit();
-        let mut instruction_accounts = [UNINIT_INSTRUCTION_ACCOUNTS; 1];
+        let mut accounts = [UNINIT_INSTRUCTION_ACCOUNTS; 1];
 
         unsafe {
             // SAFETY:
-            // - `instruction_accounts` is sized to 1
+            // - `accounts` is sized to 1
             // - Index 0 is always present (Mint)
-            instruction_accounts
+            accounts
                 .get_unchecked_mut(0)
                 .write(InstructionAccount::writable(mint.address()));
         }
@@ -65,7 +65,7 @@ impl Initialize<'_, '_> {
         let instruction = InstructionView {
             program_id: token_program,
             data,
-            accounts: unsafe { slice::from_raw_parts(instruction_accounts.as_ptr() as _, 1) },
+            accounts: unsafe { slice::from_raw_parts(accounts.as_ptr() as _, 1) },
         };
 
         // Account Views for CPI
