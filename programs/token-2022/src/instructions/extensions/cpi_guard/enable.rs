@@ -111,7 +111,7 @@ impl EnableCpiGuard<'_, '_, '_> {
             account_views.get_unchecked_mut(1).write(authority);
         }
 
-        // Fill signer accounts
+        // Fill all signer accounts
         for (account_view, signer) in account_views[2..].iter_mut().zip(multisig_accounts.iter()) {
             account_view.write(signer);
         }
