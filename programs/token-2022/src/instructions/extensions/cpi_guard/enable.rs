@@ -23,7 +23,7 @@ use {
 /// 1. `[readonly]` The multisig account that owns the token account.
 /// 2. `[signer]` M signer accounts (as required by the multisig).
 pub struct EnableCpiGuard<'a, 'b, 'c> {
-    /// The token account to enable with the Memo-Transfer extension.
+    /// The token account to enable with the CpiGuard extension.
     pub token_account: &'a AccountView,
     /// The owner of the token account (single or multisig).
     pub authority: &'a AccountView,
@@ -59,33 +59,28 @@ impl EnableCpiGuard<'_, '_, '_> {
         // i.e. [token_account + authority](2) + signers(max_multisig_signers)
         const UNINIT_INSTRUCTION_ACCOUNTS: MaybeUninit<InstructionAccount> =
             MaybeUninit::<InstructionAccount>::uninit();
-        let mut instruction_accounts = [UNINIT_INSTRUCTION_ACCOUNTS; 2 + MAX_MULTISIG_SIGNERS];
+        let mut accounts = [UNINIT_INSTRUCTION_ACCOUNTS; 2 + MAX_MULTISIG_SIGNERS];
 
         // SAFETY:
-        // - `instruction_accounts` is sized to 2 + MAX_MULTISIG_SIGNERS
+        // - `accounts` is sized to 2 + MAX_MULTISIG_SIGNERS
+        // - Index 0 is always present (TokenAccount)
+        // - Index 1 is always present (Authority)
         unsafe {
-            // - Index 0 is always present (TokenAccount)
-            instruction_accounts
+            accounts
                 .get_unchecked_mut(0)
                 .write(InstructionAccount::writable(token_account.address()));
 
-            // - Index 1 is always present (Authority)
-            instruction_accounts
-                .get_unchecked_mut(1)
-                .write(InstructionAccount::new(
-                    authority.address(),
-                    false,
-                    multisig_accounts.is_empty(),
-                ));
+            accounts.get_unchecked_mut(1).write(InstructionAccount::new(
+                authority.address(),
+                false,
+                multisig_accounts.is_empty(),
+            ));
         }
 
         // add the multisig if they exist for each signer account
         // creates a tuple of (account, signer) for each multisig i.e from index 2
-        for (instruction_account, signer) in instruction_accounts[2..]
-            .iter_mut()
-            .zip(multisig_accounts.iter())
-        {
-            instruction_account.write(InstructionAccount::readonly_signer(signer.address()));
+        for (account, signer) in accounts[2..].iter_mut().zip(multisig_accounts.iter()) {
+            account.write(InstructionAccount::readonly_signer(signer.address()));
         }
 
         // build instruction data for CpiGuard
@@ -99,7 +94,7 @@ impl EnableCpiGuard<'_, '_, '_> {
             data,
             accounts: unsafe {
                 // create a slice &[] by providing the pointer to that data and the length of the data
-                slice::from_raw_parts(instruction_accounts.as_ptr() as _, num_accounts)
+                slice::from_raw_parts(accounts.as_ptr() as _, num_accounts)
             },
         };
 
@@ -109,10 +104,10 @@ impl EnableCpiGuard<'_, '_, '_> {
 
         // SAFETY:
         // - `account_views` is sized to 2 + MAX_MULTISIG_SIGNERS
+        // - Index 0 is always present
+        // - Index 1 is always present
         unsafe {
-            // - Index 0 is always present
             account_views.get_unchecked_mut(0).write(token_account);
-            // - Index 1 is always present
             account_views.get_unchecked_mut(1).write(authority);
         }
 
