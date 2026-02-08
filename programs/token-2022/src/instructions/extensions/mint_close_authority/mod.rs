@@ -68,7 +68,7 @@ impl InitializeMintCloseAuthority<'_, '_, '_> {
             &[ExtensionDiscriminator::MintCloseAuthority as u8],
         );
 
-        if let Some(close_authority) = &self.close_authority {
+        if let Some(close_authority) = close_authority {
             write_bytes(&mut data[1..2], &[1]);
             write_bytes(&mut data[2..34], &close_authority.to_bytes());
         } else {
