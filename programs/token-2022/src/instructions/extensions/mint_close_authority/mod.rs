@@ -12,9 +12,18 @@ use {
     },
     solana_program_error::{ProgramError, ProgramResult},
 };
-// Instructions
+/// Update the multiplier for the Scaled UI Amount extension on a mint account.
+///
+/// Expected accounts:
+///
+/// **Single authority**
+/// 0. `[writable]` The mint account to initialize the close authority.
+///
+/// **Multisignature authority**
+/// 0. `[writable]` The mint account to initialize the close authority.
+/// 1. `[signer]` M signer accounts (as required by the multisig).
 pub struct InitializeMintCloseAuthority<'a, 'b, 'c> {
-    /// The mint to initialize the close authority
+    /// The mint account to initialize the close authority
     pub mint_account: &'a AccountView,
     /// Signer accounts if the authority is a multisig.
     pub signers: &'c [&'a AccountView],
