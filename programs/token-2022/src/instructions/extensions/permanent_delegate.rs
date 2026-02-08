@@ -26,7 +26,7 @@ pub struct InitializePermanentDelegate<'a, 'b> {
     /// Authority that may sign for `Transfer`s and `Burn`s on any account.
     pub delegate: &'b Address,
 
-    /// Token Program
+    /// The token program.
     pub token_program: &'b Address,
 }
 
